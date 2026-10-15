@@ -1,4 +1,4 @@
-"""diskmap: see what's using your disk and build a cleanup script.
+"""DiskMap: see what's using your disk and build a cleanup script.
 
     python -m diskmap                 # scan your home folder and open the UI
     python -m diskmap ~/Projects      # scan a specific folder
@@ -78,7 +78,7 @@ def main() -> None:
     server, port = serve(app, args.port)
     app.start_scan()
     url = f"http://127.0.0.1:{port}/"
-    print(f"diskmap is scanning {tilde(root, app.home)}")
+    print(f"DiskMap is scanning {tilde(root, app.home)}")
     print(f"Open {url}  (Ctrl+C to quit)")
     if not args.no_browser:
         threading.Timer(0.3, webbrowser.open, args=(url,)).start()

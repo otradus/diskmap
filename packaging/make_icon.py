@@ -1,4 +1,4 @@
-"""Draw packaging/icon.png (1024x1024): the diskmap logo, three treemap tiles.
+"""Draw packaging/icon.png (1024x1024): the DiskMap logo, three treemap tiles.
 
 Run with Pillow installed:  python packaging/make_icon.py
 """

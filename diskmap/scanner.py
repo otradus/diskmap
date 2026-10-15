@@ -80,6 +80,7 @@ class Scanner:
         self.started: Optional[float] = None
         self.finished: Optional[float] = None
         self.found: list = []
+        self.denied: list = []  # folders we couldn't list
         self._lock = threading.Lock()
         self._inodes: set = set()
         self._opening: dict = {}  # thread id -> (path, since); spots listings stuck on a macOS privacy prompt
@@ -128,6 +129,7 @@ class Scanner:
             node.cat = own or "other"
             with self._lock:
                 self.errors += 1
+                self.denied.append(path)
             return node
         self._opening.pop(tid, None)
 
@@ -239,6 +241,7 @@ class ScanResult:
         self.files = scanner.files
         self.dirs = scanner.dirs
         self.errors = scanner.errors
+        self.denied = sorted(scanner.denied)
         self.duration = (scanner.finished or time.time()) - (scanner.started or time.time())
         self.finished_at = scanner.finished
         usage = shutil.disk_usage(scanner.root)

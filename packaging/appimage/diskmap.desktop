@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=diskmap
+Name=DiskMap
 Comment=See what's using your disk and build a cleanup script
 Exec=diskmap
 Icon=diskmap

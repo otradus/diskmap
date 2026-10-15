@@ -1,3 +1,3 @@
-"""diskmap: disk usage explorer and cleanup helper."""
+"""DiskMap: disk usage explorer and cleanup helper."""
 
 __version__ = "0.1.0"

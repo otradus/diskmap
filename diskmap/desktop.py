@@ -1,4 +1,4 @@
-"""diskmap as a desktop app: its own window on macOS and Windows, the browser on Linux.
+"""DiskMap as a desktop app: its own window on macOS and Windows, the browser on Linux.
 
     python -m diskmap.desktop
 
@@ -54,7 +54,7 @@ class DesktopApi:
 def run_in_window(webview, server, url: str) -> None:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     api = DesktopApi()
-    window = webview.create_window("diskmap", url, js_api=api, width=1360, height=880, min_size=(900, 600))
+    window = webview.create_window("DiskMap", url, js_api=api, width=1360, height=880, min_size=(900, 600))
     api._window = window
     webview.start()
     server.shutdown()
@@ -75,7 +75,7 @@ def run_in_browser(app: App, server, url: str) -> None:
                 os._exit(0)
 
     threading.Thread(target=watchdog, daemon=True).start()
-    print(f"diskmap is running at {url}  (use Quit in the page, or close the tab)")
+    print(f"DiskMap is running at {url}  (use Quit in the page, or close the tab)")
     webbrowser.open(url)
     try:
         server.serve_forever()

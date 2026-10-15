@@ -38,7 +38,7 @@ jobs:
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
-        run: ditto -c -k --keepParent dist/diskmap.app "dist/${{ matrix.artifact }}"
+        run: ditto -c -k --keepParent dist/DiskMap.app "dist/${{ matrix.artifact }}"
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -92,4 +92,4 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "diskmap $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "DiskMap $GITHUB_REF_NAME" --generate-notes

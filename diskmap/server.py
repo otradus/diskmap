@@ -1,4 +1,4 @@
-"""Tiny local web server for the diskmap UI (standard library only)."""
+"""Tiny local web server for the DiskMap UI (standard library only)."""
 from __future__ import annotations
 
 import json
@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
+from .disks import other_disks
 from .scanner import ScanResult, Scanner, tilde
 
 STATIC = Path(__file__).parent / "static"
@@ -21,7 +22,9 @@ PLATFORM = {"win32": "windows", "darwin": "mac"}.get(sys.platform, "linux")
 class App:
     def __init__(self, root: str):
         self.root = os.path.realpath(os.path.expanduser(root))
+        self.start_root = self.root  # the folder given on the command line
         self.home = os.path.realpath(os.path.expanduser("~"))
+        self.disks: list = []
         self.lock = threading.Lock()
         self.scanner: Optional[Scanner] = None
         self.result: Optional[ScanResult] = None
@@ -31,10 +34,23 @@ class App:
         self.last_seen = time.time()
         self.bye_at = 0.0  # when a browser-mode tab last said it was closing
 
-    def start_scan(self) -> bool:
+    def choices(self) -> list:
+        """What the page may ask to scan: the starting folder, home, and other disks."""
+        out = []
+        for root in dict.fromkeys((self.start_root, self.home)):
+            out.append({"root": root, "label": self.label_for(root)})
+        out += [d for d in self.disks if d["root"] not in (self.start_root, self.home)]
+        return out
+
+    def start_scan(self, root: Optional[str] = None) -> bool:
         with self.lock:
             if self.scanner and self.scanner.running:
                 return False
+            self.disks = other_disks(self.home)
+            if root is not None:
+                if root not in {c["root"] for c in self.choices()}:
+                    return False
+                self.root = root
             self.error = None
             self.scanner = Scanner(self.root, self.home)
             scanner = self.scanner
@@ -52,8 +68,16 @@ class App:
             self.result = result
             self.scan_id += 1
 
+    def label_for(self, root: str) -> str:
+        if root == self.home:
+            return "~ Home"
+        for d in self.disks:
+            if d["root"] == root:
+                return d["label"]
+        return tilde(root, self.home)
+
     def root_label(self) -> str:
-        return "~ Home" if self.root == self.home else tilde(self.root, self.home)
+        return self.label_for(self.root)
 
     def status(self) -> dict:
         s = self.scanner
@@ -74,6 +98,7 @@ class App:
             "browser_mode": self.browser_mode,
             "scan_id": self.scan_id,
             "error": self.error,
+            "choices": self.choices(),
         }
         if s:
             out["progress"] = {
@@ -87,11 +112,13 @@ class App:
         r = self.result
         if r:
             out["summary"] = {
+                "root": r.root,
                 "disk": r.disk,
                 "scanned": r.tree.size,
                 "files": r.files,
                 "dirs": r.dirs,
                 "errors": r.errors,
+                "denied": [tilde(p, self.home) for p in r.denied[:200]],
                 "duration": r.duration,
                 "finished_at": r.finished_at,
             }
@@ -102,7 +129,7 @@ def make_handler(app: App, port: int):
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "diskmap"
+        server_version = "DiskMap"
 
         def log_message(self, fmt, *args):  # keep the terminal quiet
             pass
@@ -164,12 +191,22 @@ def make_handler(app: App, port: int):
             if not self._post_ok():
                 return
             if path == "/api/scan":
-                self._json({"started": app.start_scan()})
+                self._json({"started": app.start_scan(self._body().get("root"))})
             elif path == "/api/quit" and app.browser_mode:
                 self._json({"ok": True})
                 threading.Timer(0.3, os._exit, args=(0,)).start()
             else:
                 self._send(404, b"not found", "text/plain")
+
+        def _body(self) -> dict:
+            length = int(self.headers.get("Content-Length") or 0)
+            if not length:
+                return {}
+            try:
+                data = json.loads(self.rfile.read(min(length, 65536)))
+            except ValueError:
+                return {}
+            return data if isinstance(data, dict) else {}
 
         def _tree(self, q: dict) -> None:
             r = app.result

@@ -1,5 +1,5 @@
-# PyInstaller spec for the diskmap app. Build with:  pyinstaller packaging/diskmap.spec
-#   macOS   -> dist/diskmap.app
+# PyInstaller spec for the DiskMap app. Build with:  pyinstaller packaging/diskmap.spec
+#   macOS   -> dist/DiskMap.app
 #   Windows -> dist/diskmap.exe
 #   Linux   -> dist/diskmap/  (packaging/build_appimage.sh turns it into an AppImage)
 import os
@@ -30,15 +30,16 @@ else:
     coll = COLLECT(exe, a.binaries, a.datas, name="diskmap", upx=False)
 
 if IS_MAC:
-    why = "diskmap reads folder sizes to show what uses your disk. It never changes files."
+    why = "DiskMap reads folder sizes to show what uses your disk. It never changes files."
     app = BUNDLE(
         coll,
-        name="diskmap.app",
+        name="DiskMap.app",
         icon=ICON,
         bundle_identifier="io.github.otradus.diskmap",
         version=VERSION,
         info_plist={
-            "CFBundleDisplayName": "diskmap",
+            "CFBundleName": "DiskMap",
+            "CFBundleDisplayName": "DiskMap",
             "CFBundleShortVersionString": VERSION,
             "LSMinimumSystemVersion": "11.0",
             "NSHighResolutionCapable": True,
