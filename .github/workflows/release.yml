@@ -66,7 +66,7 @@ jobs:
             sleep 1
           done
           curl -sf http://127.0.0.1:8765/api/status | grep -q '"state":"done"'
-          curl -sf http://127.0.0.1:8765/ | grep -q '<title>Diskmap</title>'
+          curl -sf http://127.0.0.1:8765/ | grep -q '<title>DiskMap</title>'
           curl -sf -X POST -H 'X-Diskmap: 1' http://127.0.0.1:8765/api/quit
           for i in $(seq 10); do kill -0 "$APP_PID" 2>/dev/null || break; sleep 1; done
           if kill -0 "$APP_PID" 2>/dev/null; then echo "app did not quit"; cat app.log; exit 1; fi
