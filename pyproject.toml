@@ -5,8 +5,12 @@ description = "See what's using your disk and build a cleanup script."
 requires-python = ">=3.9"
 dependencies = []
 
+[project.optional-dependencies]
+desktop = ["pywebview>=5"]
+
 [project.scripts]
 diskmap = "diskmap.__main__:main"
+diskmap-app = "diskmap.desktop:main"
 
 [build-system]
 requires = ["setuptools>=61"]

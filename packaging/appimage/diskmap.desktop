@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=diskmap
+Comment=See what's using your disk and build a cleanup script
+Exec=diskmap
+Icon=diskmap
+Categories=Utility;System;
+Terminal=false

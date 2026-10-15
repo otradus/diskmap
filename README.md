@@ -21,7 +21,28 @@ Pure Python 3.9+, standard library only. Works on macOS, Linux and Windows:
   Very deep `node_modules` paths can exceed Windows' 260-character limit in Windows PowerShell 5.1;
   PowerShell 7 handles them.
 
-## Run
+## Download the app
+
+Get the latest build from [Releases](https://github.com/otradus/diskmap/releases). No Python needed.
+
+| Platform | File | Opens in |
+|---|---|---|
+| macOS (Apple Silicon) | `diskmap-macos-arm64.zip` → `diskmap.app` | its own window |
+| Windows 10/11 | `diskmap-windows-x64.exe` | its own window |
+| Linux (x86_64) | `diskmap-linux-x86_64.AppImage` | your browser |
+
+The builds aren't code-signed, so the first launch needs one extra step:
+
+- **macOS**: if it says Apple could not verify diskmap, open System Settings → Privacy & Security
+  and click **Open Anyway**. To scan protected folders without prompts, give **diskmap** itself
+  Full Disk Access. You may need to grant that again after installing a new version.
+- **Windows**: on "Windows protected your PC", click **More info → Run anyway**.
+- **Linux**: `chmod +x diskmap-linux-x86_64.AppImage` and run it. It opens in your browser. Use
+  **Quit** in the page, or just close the tab: it stops by itself (within a few minutes at most).
+  If it complains about FUSE, install your distro's FUSE package or run it with
+  `--appimage-extract-and-run`.
+
+## Run from source
 
 ```bash
 python3 -m diskmap
@@ -40,6 +61,18 @@ On macOS, the first scan may trigger "Terminal would like to access files in you
 Desktop/Documents folder" prompts. Folders you deny show up as "no access". To let it
 see everything, give your terminal Full Disk Access in System Settings → Privacy & Security.
 
+## Build the app yourself
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r packaging/requirements.txt
+.venv/bin/pyinstaller packaging/diskmap.spec    # → dist/diskmap.app, dist/diskmap.exe or dist/diskmap/
+```
+
+Build on the platform you're targeting (PyInstaller can't cross-compile). On Linux, run
+`packaging/build_appimage.sh path/to/appimagetool` afterwards to get the AppImage.
+`.venv/bin/python -m diskmap.desktop` runs the app version from source.
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds all three and publishes a Release.
+
 ## How it works
 
 - `diskmap/scanner.py`: a multi-threaded `os.scandir` walk. Sizes are allocated blocks
@@ -49,3 +82,6 @@ see everything, give your terminal Full Disk Access in System Settings → Priva
   new cache (by home-relative path, or by folder name inside your projects).
 - `diskmap/server.py`: a small `http.server` JSON API that serves only 127.0.0.1.
 - `diskmap/static/index.html`: the UI (vanilla JS, squarified treemap).
+- `diskmap/desktop.py`: the app launcher. Uses a pywebview window on macOS/Windows, and the
+  browser (with Quit and auto-exit) on Linux.
+- `packaging/`: PyInstaller spec, icon, and AppImage files.

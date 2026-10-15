@@ -68,7 +68,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card:first-child { border-left: 0; }
 .card .label { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.card .value { margin-top: 8px; font: 700 26px/1 var(--mono); letter-spacing: -.02em; white-space: nowrap; }
+.card .value { margin-top: 8px; font: 700 26px/1 var(--mono); letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card .value small { font: 400 13px var(--mono); color: var(--muted); letter-spacing: 0; margin-left: 4px; }
 .card .value small.up { color: var(--green); }
 
@@ -199,6 +199,7 @@ dialog pre { margin: 10px 18px; padding: 12px; background: var(--seg); border-ra
   <div class="brand"><span class="brand-mark"><i></i><i></i><i></i></span>diskmap</div>
   <div class="scaninfo" id="scaninfo">Starting…</div>
   <button class="btn" id="rescan">Rescan</button>
+  <button class="btn" id="quit" hidden>Quit</button>
 </div>
 
 <section class="cards">
@@ -330,6 +331,7 @@ async function poll() {
   try { s = await api("/api/status"); }
   catch { $("scaninfo").textContent = "Lost connection to the diskmap server — is it still running?"; setTimeout(poll, 2000); return; }
   state.status = s;
+  setupBrowserMode();
   renderScanInfo();
   if (s.state === "scanning") { showProgress(s); setTimeout(poll, 400); return; }
   if (s.state === "error") { showError(s.error); return; }
@@ -504,6 +506,7 @@ function buildScript() {
   return lines.join(win ? "\r\n" : "\n") + (win ? "\r\n" : "\n");
 }
 async function copyText(text) {
+  try { if (window.pywebview && window.pywebview.api && await window.pywebview.api.copy(text)) return true; } catch {}
   try { await navigator.clipboard.writeText(text); return true; }
   catch {
     const ta = el("textarea"); ta.value = text; document.body.append(ta); ta.select();
@@ -713,14 +716,39 @@ $("show-free").addEventListener("change", (e) => {
   if (state.showFree && state.path) toast("Free space shows at the top level");
   renderLegend(); renderCrumbs(); renderMap();
 });
-$("rescan").onclick =async () => { await api("/api/scan", { method: "POST" }); poll(); };
+const POST = { method: "POST", headers: { "X-Diskmap": "1" } };
+$("rescan").onclick = async () => { await api("/api/scan", POST); poll(); };
+$("quit").onclick = async () => {
+  try { await api("/api/quit", POST); } catch {}
+  quitting = true;
+  document.body.textContent = "";
+  const msg = el("div", "empty", "diskmap has quit. You can close this tab.");
+  msg.style.marginTop = "30vh"; document.body.append(msg);
+};
+
+// Browser mode (Linux app) has no window to close: keep telling the server a tab is open,
+// and say goodbye when it closes so the app can quit.
+let heartbeat = 0, quitting = false;
+function setupBrowserMode() {
+  if (!state.status || !state.status.browser_mode || heartbeat) return;
+  $("quit").hidden = false;
+  heartbeat = setInterval(() => { if (!quitting) fetch("/api/status").catch(() => {}); }, 15000);
+  addEventListener("pagehide", () => { if (!quitting) navigator.sendBeacon("/api/bye"); });
+}
 $("select-safe").onclick = () => { state.selected = new Set(state.recs.filter((r) => r.safety === "safe").map((r) => r.id)); renderRecs(); };
 $("select-none").onclick = () => { state.selected.clear(); renderRecs(); };
 $("copy-script").onclick = copyScript;
 $("dlg-close").onclick = () => $("dlg").close();
 $("dlg-copy").onclick = async () => toast((await copyText($("dlg-script").textContent)) ? "Copied" : "Clipboard unavailable");
-$("dlg-download").onclick = () => {
-  const a = el("a"); a.download = isWindows() ? "diskmap-cleanup.ps1" : "diskmap-cleanup.sh";
+$("dlg-download").onclick = async () => {
+  const name = isWindows() ? "diskmap-cleanup.ps1" : "diskmap-cleanup.sh";
+  if (window.pywebview && window.pywebview.api) {
+    // Inside the desktop app: downloads don't work in the web view, so use a native Save dialog.
+    const saved = await window.pywebview.api.save_script($("dlg-script").textContent, name);
+    if (saved) toast("Saved to " + saved);
+    return;
+  }
+  const a = el("a"); a.download = name;
   a.href = URL.createObjectURL(new Blob([$("dlg-script").textContent], { type: "text/plain" }));
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };

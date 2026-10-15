@@ -27,6 +27,9 @@ class App:
         self.result: Optional[ScanResult] = None
         self.error: Optional[str] = None
         self.scan_id = 0
+        self.browser_mode = False  # desktop launcher without a window: the page offers Quit
+        self.last_seen = time.time()
+        self.bye_at = 0.0  # when a browser-mode tab last said it was closing
 
     def start_scan(self) -> bool:
         with self.lock:
@@ -68,6 +71,7 @@ class App:
             "root_label": self.root_label(),
             "is_home": self.root == self.home,
             "platform": PLATFORM,
+            "browser_mode": self.browser_mode,
             "scan_id": self.scan_id,
             "error": self.error,
         }
@@ -121,9 +125,18 @@ def make_handler(app: App, port: int):
             self._send(403, b"forbidden", "text/plain")
             return False
 
+        def _post_ok(self) -> bool:
+            # A custom header forces a CORS preflight (which we never answer), so other
+            # websites can't trigger rescans or quit the app from your browser.
+            if self.headers.get("X-Diskmap") == "1":
+                return True
+            self._send(403, b"forbidden", "text/plain")
+            return False
+
         def do_GET(self):
             if not self._host_ok():
                 return
+            app.last_seen = time.time()
             url = urlparse(self.path)
             if url.path in ("/", "/index.html"):
                 self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
@@ -140,8 +153,21 @@ def make_handler(app: App, port: int):
         def do_POST(self):
             if not self._host_ok():
                 return
-            if urlparse(self.path).path == "/api/scan":
+            app.last_seen = time.time()
+            path = urlparse(self.path).path
+            if path == "/api/bye":
+                # Sent by navigator.sendBeacon when the tab closes (it can't add headers).
+                # Harmless: it only lets browser mode quit sooner if no page is left.
+                app.bye_at = time.time()
+                self._send(204, b"", "text/plain")
+                return
+            if not self._post_ok():
+                return
+            if path == "/api/scan":
                 self._json({"started": app.start_scan()})
+            elif path == "/api/quit" and app.browser_mode:
+                self._json({"ok": True})
+                threading.Timer(0.3, os._exit, args=(0,)).start()
             else:
                 self._send(404, b"not found", "text/plain")
 
