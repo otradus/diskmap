@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diskmap</title>
+<style>
+:root {
+  --bg: #f5f5f6; --card: #fff; --line: #e7e7ea; --line2: #f0f0f2; --text: #18181b; --muted: #74747c;
+  --btn: #fff; --btn-line: #dcdce0; --primary: #111113; --primary-ink: #fff; --seg: #f1f1f3;
+  --green: #1f9d4c; --orange: #e0821c; --green-pill: #e5f6ea; --orange-pill: #fdf0e1;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  --shadow: 0 1px 2px rgba(0,0,0,.04);
+  --hatch-safe: rgba(31,150,70,.42); --hatch-review: rgba(214,128,20,.45);
+
+  --media-bg:#fde7da; --media-bg2:#fef3ec; --media-bd:#f2b896; --media-ink:#8f421a;
+  --other-bg:#eef0f2; --other-bg2:#f7f8f9; --other-bd:#cfd3d8; --other-ink:#4b5563;
+  --code-bg:#e2e0fb;  --code-bg2:#efeefd;  --code-bd:#b5aef2;  --code-ink:#4636a8;
+  --sdk-bg:#d8eef4;   --sdk-bg2:#ebf6f9;   --sdk-bd:#8fcadb;   --sdk-ink:#1d6577;
+  --ai-bg:#fbdfe9;    --ai-bg2:#fdeef3;    --ai-bd:#eda4be;    --ai-ink:#962a52;
+  --cache-bg:#dee7fb; --cache-bg2:#edf2fd; --cache-bd:#a2b9ef; --cache-ink:#2c4b9e;
+  --safe-bg:#dcf2e2;  --safe-bg2:#ecf8ef;  --safe-bd:#7cc794;  --safe-ink:#1b6e37;
+  --review-bg:#fdefd6;--review-bg2:#fef7ea;--review-bd:#ecbd6c;--review-ink:#82540a;
+  --keep-bg:#f1f2f4;  --keep-bg2:#f8f8f9;  --keep-bd:#dadde1;  --keep-ink:#6b7280;
+  --free-bg:#ffffff;  --free-bg2:#ffffff;  --free-bd:#b9bcc2;  --free-ink:#6b7280;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111113; --card: #1a1a1d; --line: #2c2c31; --line2: #242428; --text: #ececef; --muted: #9a9aa3;
+    --btn: #222226; --btn-line: #38383e; --primary: #f2f2f4; --primary-ink: #111113; --seg: #26262a;
+    --green: #4cc979; --orange: #f0a04b; --green-pill: #173323; --orange-pill: #3a2a14;
+    --shadow: none; --hatch-safe: rgba(90,205,130,.38); --hatch-review: rgba(240,165,70,.4);
+
+    --media-bg:#3a2519; --media-bg2:#2a1c14; --media-bd:#7a4a2e; --media-ink:#f5b48e;
+    --other-bg:#2a2d31; --other-bg2:#212327; --other-bd:#4a4f56; --other-ink:#c4c9d0;
+    --code-bg:#2a2850;  --code-bg2:#201e3c;  --code-bd:#5a52b8;  --code-ink:#c7c0fd;
+    --sdk-bg:#173238;   --sdk-bg2:#12262b;   --sdk-bd:#2f7385;   --sdk-ink:#9bd7e6;
+    --ai-bg:#3b1d29;    --ai-bg2:#2b161f;    --ai-bd:#8a3a5a;    --ai-ink:#f3a9c4;
+    --cache-bg:#1d2944; --cache-bg2:#162034; --cache-bd:#3d5ea8; --cache-ink:#adc3f6;
+    --safe-bg:#173323;  --safe-bg2:#11261a;  --safe-bd:#2f8a4e;  --safe-ink:#8fdcaa;
+    --review-bg:#3a2c12;--review-bg2:#2a200e;--review-bd:#9a6d1f;--review-ink:#f1c77a;
+    --keep-bg:#26282b;  --keep-bg2:#1f2123;  --keep-bd:#3d4045;  --keep-ink:#a1a6ad;
+    --free-bg:#141416;  --free-bg2:#141416;  --free-bd:#4a4d53;  --free-ink:#9a9aa3;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 var(--sans); }
+body { padding: 16px 20px 20px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+
+.topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.brand { font-weight: 700; font-size: 16px; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+.brand-mark { width: 18px; height: 18px; display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; }
+.brand-mark i { border-radius: 2px; background: var(--code-bd); }
+.brand-mark i:first-child { grid-row: span 2; background: var(--media-bd); }
+.brand-mark i:last-child { background: var(--cache-bd); }
+.scaninfo { color: var(--muted); font-size: 13px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn { background: var(--btn); border: 1px solid var(--btn-line); border-radius: 8px; padding: 6px 12px; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.card { padding: 14px 18px 16px; border-left: 1px solid var(--line); min-width: 0; }
+.card:first-child { border-left: 0; }
+.card .label { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.card .value { margin-top: 8px; font: 700 26px/1 var(--mono); letter-spacing: -.02em; white-space: nowrap; }
+.card .value small { font: 400 13px var(--mono); color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+.card .value small.up { color: var(--green); }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 16px; align-items: start; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); min-width: 0; }
+.panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 16px 12px; }
+.panel-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+.panel-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+.tools { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; user-select: none; }
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch .track { width: 30px; height: 18px; border-radius: 9px; background: var(--btn-line); position: relative; transition: background .15s; }
+.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+.switch input:checked + .track { background: var(--primary); }
+.switch input:checked + .track::after { transform: translateX(12px); background: var(--card); }
+.switch input:focus-visible + .track { outline: 2px solid var(--muted); outline-offset: 2px; }
+.switch input:checked ~ span:last-child { color: var(--text); }
+.switch.inactive { opacity: .5; }
+.seg { display: inline-flex; background: var(--seg); border-radius: 9px; padding: 3px; border: 1px solid var(--line); }
+.seg button { border: 0; background: none; padding: 5px 12px; border-radius: 7px; color: var(--muted); font-weight: 500; }
+.seg button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+.crumbs { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 16px; border-top: 1px solid var(--line); }
+.crumbs nav { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.crumbs nav button { border: 0; background: none; padding: 2px 4px; border-radius: 5px; color: var(--muted); }
+.crumbs nav button:hover { background: var(--seg); color: var(--text); }
+.crumbs nav button:last-child { color: var(--text); font-weight: 550; }
+.crumbs nav span { color: var(--muted); opacity: .6; }
+.crumbs .total { color: var(--muted); font-family: var(--mono); font-size: 13px; flex-shrink: 0; }
+
+.mapwrap { position: relative; padding: 0 16px; }
+#map { position: relative; height: max(440px, calc(100vh - 330px)); }
+.tile { position: absolute; border: 1px solid; border-radius: 6px; overflow: hidden; cursor: pointer; transition: filter .1s; }
+.tile:hover { filter: brightness(.97); }
+@media (prefers-color-scheme: dark) { .tile:hover { filter: brightness(1.15); } }
+.tile.file, .tile.agg { cursor: default; }
+.tile.agg { border-style: dashed; }
+.tile .lbl { position: absolute; left: 7px; top: 5px; right: 7px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .sz { position: absolute; left: 7px; bottom: 4px; font-family: var(--mono); font-weight: 650; white-space: nowrap; letter-spacing: -.02em; }
+.tile.group .head { position: absolute; left: 0; right: 0; top: 0; height: 26px; padding: 5px 8px 0; display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 550; }
+.tile.group .head .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile.group .head .gsz { font: 400 12px var(--mono); opacity: .75; white-space: nowrap; }
+.tile.free { border-style: dashed; background-image: radial-gradient(var(--free-bd) 1px, transparent 1.2px); background-size: 12px 12px; }
+.tile.hatch-safe { background-image: repeating-linear-gradient(135deg, var(--hatch-safe) 0 1.2px, transparent 1.2px 7px); }
+.tile.hatch-review { background-image: repeating-linear-gradient(135deg, var(--hatch-review) 0 1.2px, transparent 1.2px 7px); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 12px 16px 14px; color: var(--muted); font-size: 12.5px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 9px; height: 9px; border-radius: 2px; border: 1px solid; }
+
+.overlay { position: absolute; inset: 0 16px; display: grid; place-items: center; background: var(--card); z-index: 5; text-align: center; }
+.overlay[hidden] { display: none; }
+.spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--text); animation: spin .8s linear infinite; margin: 0 auto 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.overlay h3 { margin: 0 0 4px; font-size: 15px; }
+.overlay .big { font: 600 20px var(--mono); margin: 8px 0; }
+.overlay .cur { font: 12px var(--mono); color: var(--muted); max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 auto; }
+.overlay .wait { margin: 16px auto 0; max-width: 460px; padding: 10px 12px; border-radius: 8px; background: var(--orange-pill); color: var(--review-ink); font-size: 12.5px; text-align: left; }
+.overlay .wait .mono { font-size: 12px; margin: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overlay .wait div:last-child { margin-top: 6px; }
+.overlay .err { color: #d14343; font-family: var(--mono); font-size: 13px; max-width: 520px; }
+
+.recs { position: sticky; top: 16px; display: flex; flex-direction: column; max-height: calc(100vh - 32px); }
+.recs .panel-head { padding-bottom: 8px; }
+.reclist { overflow-y: auto; flex: 1; border-top: 1px solid var(--line); }
+.group-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 8px; position: sticky; top: 0; background: var(--card); z-index: 1; }
+.pill { font-size: 12px; font-weight: 550; padding: 2px 8px; border-radius: 6px; }
+.pill.safe { background: var(--green-pill); color: var(--green); }
+.pill.review { background: var(--orange-pill); color: var(--orange); }
+.group-head .mono { color: var(--muted); font-size: 13px; }
+.rec { display: flex; align-items: center; border-top: 1px solid var(--line2); }
+.rec label { display: flex; align-items: center; gap: 12px; padding: 10px 4px 10px 16px; flex: 1; min-width: 0; cursor: pointer; }
+.rec input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); flex-shrink: 0; cursor: pointer; }
+.rec .txt { flex: 1; min-width: 0; }
+.rec .title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rec .where { font: 12px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rec .size { font: 600 13.5px var(--mono); white-space: nowrap; }
+.rec .chev { border: 0; background: none; padding: 10px 14px 10px 8px; color: var(--muted); font-size: 16px; line-height: 1; transition: transform .15s; }
+.rec .chev.open { transform: rotate(90deg); }
+.details { padding: 2px 16px 12px 46px; font-size: 12.5px; }
+.details .note { color: var(--muted); margin-bottom: 6px; }
+.details .cmd { font: 12px var(--mono); background: var(--seg); border-radius: 6px; padding: 4px 8px; margin-bottom: 6px; display: inline-block; }
+.details .item { display: flex; justify-content: space-between; gap: 10px; padding: 3px 6px; margin: 0 -6px; border-radius: 5px; font-family: var(--mono); font-size: 12px; }
+.details .item.nav { cursor: pointer; }
+.details .item.nav:hover { background: var(--seg); }
+.details .item .p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.details .item .s { color: var(--muted); white-space: nowrap; }
+.empty { padding: 28px 16px; color: var(--muted); text-align: center; }
+.foot { border-top: 1px solid var(--line); padding: 12px 16px 14px; }
+.foot .sel { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.foot .sel b { font-family: var(--mono); color: var(--text); }
+.foot .row { display: flex; gap: 8px; }
+
+#tip { position: fixed; pointer-events: none; z-index: 50; background: var(--primary); color: var(--primary-ink); border-radius: 8px; padding: 7px 10px; font-size: 12px; max-width: 360px; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#tip[hidden] { display: none; }
+#tip b { display: block; font-size: 13px; word-break: break-all; }
+#tip .m { opacity: .7; }
+
+dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(760px, calc(100vw - 32px)); background: var(--card); color: var(--text); box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+.dlg-head { padding: 16px 18px 6px; }
+.dlg-head h3 { margin: 0; font-size: 15px; }
+.dlg-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+dialog pre { margin: 10px 18px; padding: 12px; background: var(--seg); border-radius: 8px; max-height: 55vh; overflow: auto; font: 12px/1.55 var(--mono); white-space: pre; }
+.dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 6px 18px 16px; }
+
+#toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: var(--primary-ink); padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 60; }
+#toast[hidden] { display: none; }
+
+@media (max-width: 1100px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .recs { position: static; max-height: none; }
+}
+@media (max-width: 720px) {
+  body { padding: 12px 16px; }
+  .cards { grid-template-columns: repeat(2, 1fr); }
+  .card:nth-child(3) { border-left: 0; }
+  .card:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .card .value { font-size: 21px; }
+  .panel-head { flex-direction: column; }
+  #map { height: 420px; }
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="brand-mark"><i></i><i></i><i></i></span>diskmap</div>
+  <div class="scaninfo" id="scaninfo">Starting…</div>
+  <button class="btn" id="rescan">Rescan</button>
+</div>
+
+<section class="cards">
+  <div class="card"><div class="label">Free after cleanup</div><div class="value" id="c-free">—</div></div>
+  <div class="card"><div class="label"><span class="dot" style="background:var(--green)"></span>Safe to remove</div><div class="value" id="c-safe">—</div></div>
+  <div class="card"><div class="label"><span class="dot" style="background:var(--orange)"></span>Needs review</div><div class="value" id="c-review">—</div></div>
+  <div class="card"><div class="label">Not scanned</div><div class="value" id="c-other">—</div></div>
+</section>
+
+<div class="main">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Explorer</h2>
+        <p id="explorer-sub">Your home folder, sized by space used. Click a tile to open it.</p>
+      </div>
+      <div class="tools">
+        <label class="switch" id="free-switch" title="Show your disk's free space next to your folders (top level only)">
+          <input type="checkbox" id="show-free"><span class="track"></span><span>Free space</span>
+        </label>
+        <div class="seg" id="mode">
+          <button data-mode="category">Category</button>
+          <button data-mode="cleanup">Cleanup</button>
+        </div>
+      </div>
+    </div>
+    <div class="crumbs"><nav id="crumbs"></nav><div class="total" id="view-total"></div></div>
+    <div class="mapwrap">
+      <div id="map"></div>
+      <div class="overlay" id="overlay"><div>
+        <div class="spinner"></div>
+        <h3 id="ov-title">Scanning…</h3>
+        <div class="big" id="ov-count">0 files</div>
+        <div class="cur" id="ov-cur"></div>
+        <div class="wait" id="ov-wait" hidden></div>
+      </div></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <aside class="panel recs">
+    <div class="panel-head"><div><h2>Recommendations</h2><p>Select items to build a cleanup script</p></div></div>
+    <div class="reclist" id="reclist"><div class="empty">Waiting for the scan to finish…</div></div>
+    <div class="foot">
+      <div class="sel" id="sel-info"><b>0 B</b> selected</div>
+      <div class="row">
+        <button class="btn" id="select-safe">Select safe</button>
+        <button class="btn" id="select-none">Clear</button>
+        <span style="flex:1"></span>
+        <button class="btn primary" id="copy-script">Copy script</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div id="tip" hidden></div>
+<div id="toast" hidden></div>
+
+<dialog id="dlg">
+  <div class="dlg-head">
+    <h3>Cleanup script</h3>
+    <p id="dlg-sub">Copied to clipboard. Read it through, then paste it into Terminal.</p>
+  </div>
+  <pre id="dlg-script"></pre>
+  <div class="dlg-foot">
+    <button class="btn" id="dlg-download">Download .sh</button>
+    <button class="btn" id="dlg-copy">Copy again</button>
+    <button class="btn primary" id="dlg-close">Done</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+const CATS = {
+  media: "Documents & media", other: "Dev tools & other", code: "Code projects",
+  sdk: "iOS & Android SDKs", ai: "AI models", cache: "Package caches",
+};
+const SAFETY = { safe: "Safe to remove", review: "Needs review", keep: "Not flagged" };
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  status: null, scanId: null, recs: [], selected: new Set(), expanded: new Set(),
+  path: "", tree: null, mode: load("diskmap.mode") || "category", tiles: [],
+  showFree: load("diskmap.free") === "1", viewTotal: 0,
+};
+
+// Free space only makes sense next to the top level of the scan.
+function freeBytes() {
+  const disk = state.status && state.status.summary && state.status.summary.disk;
+  return state.showFree && !state.path && disk ? disk.free : 0;
+}
+
+function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function save(k, v) { try { localStorage.setItem(k, v); } catch {} }
+
+function fmt(b) {
+  if (b >= 1e12) return (b / 1e12).toFixed(2) + " TB";
+  if (b >= 1e9) return (b / 1e9).toFixed(1) + " GB";
+  if (b >= 1e6) return (b / 1e6).toFixed(b >= 1e8 ? 0 : 1) + " MB";
+  if (b >= 1e3) return Math.round(b / 1e3) + " KB";
+  return b + " B";
+}
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function setValue(id, bytes, small, smallCls) {
+  const v = $(id); v.textContent = "";
+  const [num, unit] = fmt(bytes).split(" ");
+  v.append(num + " " + unit);
+  if (small) { const s = el("small", smallCls || "", small); v.append(s); }
+}
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600);
+}
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+/* ---------- scan status ---------- */
+async function poll() {
+  let s;
+  try { s = await api("/api/status"); }
+  catch { $("scaninfo").textContent = "Lost connection to the diskmap server — is it still running?"; setTimeout(poll, 2000); return; }
+  state.status = s;
+  renderScanInfo();
+  if (s.state === "scanning") { showProgress(s); setTimeout(poll, 400); return; }
+  if (s.state === "error") { showError(s.error); return; }
+  $("overlay").hidden = true;
+  $("rescan").disabled = false;
+  if (s.scan_id !== state.scanId) { state.scanId = s.scan_id; await loadResults(); }
+}
+
+function renderScanInfo() {
+  const s = state.status, info = $("scaninfo");
+  $("explorer-sub").textContent = (s.is_home ? "Your home folder" : s.root_label) + ", sized by space used. Click a tile to open it.";
+  if (s.state === "scanning") { info.textContent = `Scanning ${s.root_label}…`; return; }
+  const sum = s.summary;
+  if (!sum) { info.textContent = ""; return; }
+  const ago = Math.round((Date.now() / 1000 - sum.finished_at) / 60);
+  info.textContent = `${s.root_label} · ${sum.files.toLocaleString()} files in ${sum.duration.toFixed(1)}s` +
+    (sum.errors ? ` · ${sum.errors} folders unreadable` : "") + (ago >= 1 ? ` · ${ago} min ago` : "");
+}
+
+function showProgress(s) {
+  $("rescan").disabled = true;
+  const p = s.progress || { files: 0, bytes: 0, current: "", elapsed: 0 };
+  $("overlay").hidden = false;
+  $("overlay").querySelector(".spinner").hidden = false;
+  $("ov-title").textContent = `Scanning ${s.root_label}… ${Math.floor(p.elapsed)}s`;
+  $("ov-count").textContent = `${p.files.toLocaleString()} files · ${fmt(p.bytes)}`;
+  $("ov-cur").textContent = p.current;
+  const w = $("ov-wait"), waiting = p.waiting || [];
+  w.hidden = !waiting.length;
+  if (waiting.length) {
+    w.textContent = "";
+    const mac = s.platform === "mac";
+    w.append(el("b", "", mac ? "Waiting on macOS for permission to open:" : "These folders are slow to open:"));
+    for (const path of waiting.slice(0, 5)) w.append(el("div", "mono", path));
+    w.append(el("div", "", mac
+      ? "Look for a privacy dialog and click Allow or Don't Allow. To skip these prompts, give your terminal Full Disk Access."
+      : "This usually means a network drive or a disconnected cloud folder. The scan continues when they respond."));
+  }
+}
+function showError(msg) {
+  $("overlay").hidden = false;
+  $("overlay").querySelector(".spinner").hidden = true;
+  $("ov-title").textContent = "Scan failed";
+  $("ov-count").textContent = "";
+  $("ov-cur").innerHTML = ""; $("ov-cur").append(el("div", "err", msg));
+  $("rescan").disabled = false;
+}
+
+async function loadResults() {
+  const { recs } = await api("/api/recommendations");
+  state.recs = recs;
+  state.selected = new Set(recs.filter((r) => r.safety === "safe").map((r) => r.id));
+  state.expanded.clear();
+  renderRecs();
+  await navigate(state.path).catch(() => navigate(""));
+}
+
+/* ---------- cards & selection ---------- */
+const isWindows = () => !!state.status && state.status.platform === "windows";
+
+// True if `path` or one of its parent folders is in `set` (handles / and \ separators).
+function coveredBy(set, path) {
+  for (let p = path; ; ) {
+    if (set.has(p)) return true;
+    const cut = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+    if (cut <= 0) return false;
+    p = p.slice(0, cut);
+  }
+}
+
+function dedupedTotal(items) {
+  // Don't double count a folder that sits inside another selected folder.
+  const kept = new Set(); let total = 0;
+  for (const i of [...items].sort((a, b) => a.path.length - b.path.length)) {
+    if (coveredBy(kept, i.path)) continue;
+    kept.add(i.path); total += i.size;
+  }
+  return total;
+}
+const itemsOf = (recs) => recs.flatMap((r) => r.items);
+const selectedRecs = () => state.recs.filter((r) => state.selected.has(r.id));
+
+function renderCards() {
+  const sum = state.status && state.status.summary;
+  if (!sum) return;
+  const safe = state.recs.filter((r) => r.safety === "safe");
+  const review = state.recs.filter((r) => r.safety === "review");
+  const sel = dedupedTotal(itemsOf(selectedRecs()));
+  setValue("c-free", sum.disk.free + sel, sel ? "+" + fmt(sel) : "", "up");
+  setValue("c-safe", dedupedTotal(itemsOf(safe)), `${safe.length} item${safe.length === 1 ? "" : "s"}`);
+  setValue("c-review", dedupedTotal(itemsOf(review)), `${review.length} item${review.length === 1 ? "" : "s"}`);
+  setValue("c-other", Math.max(0, sum.disk.used - sum.scanned), state.status.is_home ? "system & apps" : "outside this folder");
+  const selCount = state.selected.size;
+  $("sel-info").innerHTML = "";
+  $("sel-info").append(el("b", "", fmt(sel)), ` selected · ${selCount} item${selCount === 1 ? "" : "s"}`);
+  $("copy-script").disabled = selCount === 0;
+}
+
+/* ---------- recommendations ---------- */
+function renderRecs() {
+  const list = $("reclist"); list.textContent = "";
+  if (!state.recs.length) { list.append(el("div", "empty", "Nothing obvious to clean up. Nice.")); renderCards(); return; }
+  for (const safety of ["safe", "review"]) {
+    const recs = state.recs.filter((r) => r.safety === safety);
+    if (!recs.length) continue;
+    const head = el("div", "group-head");
+    head.append(el("span", "pill " + safety, safety === "safe" ? "Safe to remove" : "Review first"),
+                el("span", "mono", fmt(dedupedTotal(itemsOf(recs)))));
+    list.append(head);
+    for (const r of recs) list.append(...recRow(r));
+  }
+  renderCards();
+}
+
+function recRow(r) {
+  const row = el("div", "rec");
+  const label = el("label");
+  const cb = el("input"); cb.type = "checkbox"; cb.checked = state.selected.has(r.id);
+  cb.addEventListener("change", () => { cb.checked ? state.selected.add(r.id) : state.selected.delete(r.id); renderCards(); });
+  const txt = el("div", "txt");
+  txt.append(el("div", "title", r.title), el("div", "where", r.where));
+  txt.title = r.where;
+  label.append(cb, txt, el("div", "size", fmt(r.size)));
+  const chev = el("button", "chev" + (state.expanded.has(r.id) ? " open" : ""), "›");
+  chev.title = "Show what's included";
+  row.append(label, chev);
+
+  const det = el("div", "details");
+  det.hidden = !state.expanded.has(r.id);
+  det.append(el("div", "note", r.note));
+  if (r.command) det.append(el("div", "cmd", "$ " + r.command));
+  for (const i of r.items.slice(0, 40)) {
+    const it = el("div", "item" + (i.rel != null ? " nav" : ""));
+    // LRM marks keep slashes in place while the ellipsis trims from the left (direction: rtl).
+    const p = el("span", "p", "‎" + i.display + "‎"); p.title = i.path;
+    const extra = i.idle_days != null ? ` · ${i.idle_days}d idle` : "";
+    it.append(p, el("span", "s", fmt(i.size) + extra));
+    if (i.rel != null) it.addEventListener("click", () => navigate(i.rel).catch((e) => toast(e.message)));
+    det.append(it);
+  }
+  if (r.items.length > 40) det.append(el("div", "note", `…and ${r.items.length - 40} more`));
+  chev.addEventListener("click", () => {
+    const open = det.hidden; det.hidden = !open; chev.classList.toggle("open", open);
+    open ? state.expanded.add(r.id) : state.expanded.delete(r.id);
+  });
+  return [row, det];
+}
+
+/* ---------- cleanup script ---------- */
+function shq(s) { return "'" + s.replace(/'/g, "'\\''") + "'"; }
+function psq(s) { return "'" + s.replace(/'/g, "''") + "'"; }
+function buildScript() {
+  const recs = selectedRecs();
+  const total = dedupedTotal(itemsOf(recs));
+  const win = isWindows();
+  const lines = win
+    ? ["# diskmap cleanup script (PowerShell)", "$ErrorActionPreference = 'Continue'"]
+    : ["#!/bin/sh", "set -u"];
+  lines.push(`# Generated ${new Date().toLocaleString()}. Frees about ${fmt(total)}. Read it before running it.`, "");
+  const done = new Set();
+  for (const r of recs) {
+    lines.push(`# ${r.title} (${fmt(r.size)}) [${r.safety === "safe" ? "safe" : "review"}]`, `#   ${r.note}`);
+    if (r.command) { lines.push(r.command, ""); continue; }
+    for (const i of [...r.items].sort((a, b) => a.path.localeCompare(b.path))) {
+      if (coveredBy(done, i.path)) continue;
+      done.add(i.path);
+      lines.push(win ? `Remove-Item -LiteralPath ${psq(i.path)} -Recurse -Force` : `rm -rf -- ${shq(i.path)}`);
+    }
+    lines.push("");
+  }
+  lines.push(win ? 'Write-Host "Done."' : 'echo "Done."');
+  return lines.join(win ? "\r\n" : "\n") + (win ? "\r\n" : "\n");
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch {
+    const ta = el("textarea"); ta.value = text; document.body.append(ta); ta.select();
+    const ok = document.execCommand("copy"); ta.remove(); return ok;
+  }
+}
+async function copyScript() {
+  const script = buildScript();
+  const ok = await copyText(script);
+  $("dlg-script").textContent = script;
+  const shell = isWindows() ? "PowerShell" : "Terminal";
+  $("dlg-sub").textContent = ok
+    ? `Copied to clipboard. Read it through, then paste it into ${shell}.`
+    : "Couldn't access the clipboard. Select the text below or download it.";
+  $("dlg-download").textContent = isWindows() ? "Download .ps1" : "Download .sh";
+  $("dlg").showModal();
+}
+
+/* ---------- explorer ---------- */
+async function navigate(rel) {
+  const tree = await api(`/api/tree?path=${encodeURIComponent(rel)}&depth=3`);
+  state.path = tree.path; state.tree = tree;
+  renderCrumbs(); renderMap();
+}
+function goUp() {
+  if (!state.path) return;
+  navigate(state.path.includes("/") ? state.path.slice(0, state.path.lastIndexOf("/")) : "");
+}
+
+function renderCrumbs() {
+  const nav = $("crumbs"); nav.textContent = "";
+  const parts = state.path ? state.path.split("/") : [];
+  const add = (label, rel) => { const b = el("button", "", label); b.onclick = () => navigate(rel); nav.append(b); };
+  add(state.status ? state.status.root_label : "~", "");
+  parts.forEach((p, i) => { nav.append(el("span", "", "/")); add(p, parts.slice(0, i + 1).join("/")); });
+  const free = freeBytes();
+  $("view-total").textContent = state.tree ? fmt(state.tree.s) + (free ? ` · ${fmt(free)} free` : "") : "";
+  $("free-switch").classList.toggle("inactive", !!state.path);
+}
+
+function renderLegend() {
+  const lg = $("legend"); lg.textContent = "";
+  const entries = state.mode === "category"
+    ? Object.entries(CATS)
+    : [["safe", SAFETY.safe], ["review", SAFETY.review], ["keep", "Keep / not flagged"]];
+  for (const [k, label] of entries) {
+    const s = el("span"), i = el("i");
+    i.style.background = `var(--${k}-bd)`; i.style.borderColor = `var(--${k}-bd)`;
+    s.append(i, label); lg.append(s);
+  }
+  if (state.showFree) {
+    const s = el("span"), i = el("i");
+    i.style.borderColor = "var(--free-bd)"; i.style.borderStyle = "dashed";
+    s.append(i, "Free space"); lg.append(s);
+  }
+  for (const b of $("mode").children) b.classList.toggle("on", b.dataset.mode === state.mode);
+}
+
+function squarify(items, x, y, w, h) {
+  const out = [];
+  const total = items.reduce((a, i) => a + i.s, 0);
+  if (total <= 0 || w <= 0 || h <= 0) return out;
+  const scale = (w * h) / total;
+  let rest = items.map((item) => ({ item, area: item.s * scale }));
+  const worst = (row, side) => {
+    let sum = 0, max = 0, min = Infinity;
+    for (const r of row) { sum += r.area; max = Math.max(max, r.area); min = Math.min(min, r.area); }
+    return Math.max((side * side * max) / (sum * sum), (sum * sum) / (side * side * min));
+  };
+  while (rest.length) {
+    const side = Math.min(w, h);
+    let row = [rest[0]], i = 1, cur = worst(row, side);
+    while (i < rest.length) {
+      const next = worst(row.concat(rest[i]), side);
+      if (next > cur) break;
+      row.push(rest[i]); cur = next; i++;
+    }
+    rest = rest.slice(i);
+    const rowArea = row.reduce((a, r) => a + r.area, 0);
+    if (w >= h) {
+      const cw = rest.length ? rowArea / h : w;
+      let cy = y;
+      for (const r of row) { const rh = (r.area / rowArea) * h; out.push({ item: r.item, x, y: cy, w: cw, h: rh }); cy += rh; }
+      x += cw; w -= cw;
+    } else {
+      const rh = rest.length ? rowArea / w : h;
+      let cx = x;
+      for (const r of row) { const rw = (r.area / rowArea) * w; out.push({ item: r.item, x: cx, y, w: rw, h: rh }); cx += rw; }
+      y += rh; h -= rh;
+    }
+  }
+  return out;
+}
+
+function palette(n, flag) {
+  if (n.free) return "free";
+  if (state.mode === "cleanup") return flag || "keep";
+  return n.c in CATS ? n.c : "other";
+}
+
+function renderMap() {
+  const map = $("map"); map.textContent = ""; state.tiles = [];
+  const t = state.tree; if (!t) return;
+  const W = map.clientWidth, H = map.clientHeight;
+  state.viewTotal = t.s;
+  if (!t.k || !t.k.length) {
+    map.append(el("div", "empty", t.x ? "Couldn't read this folder (permission denied)." : "This folder is empty."));
+    return;
+  }
+  let view = t;
+  const free = freeBytes();
+  if (free > 0) {
+    const k = [...t.k, { n: "Free space", s: free, c: "free", free: 1 }].sort((a, b) => b.s - a.s);
+    view = { ...t, s: t.s + free, k };
+    state.viewTotal = view.s;
+  }
+  layout(view, 0, 0, W, H, 1, t.f || null, state.path);
+}
+
+function layout(node, x, y, w, h, level, flag, rel) {
+  const kids = (node.k || []).filter((k) => k.s > 0);
+  for (const r of squarify(kids, x, y, w, h)) {
+    const n = r.item;
+    const childRel = n.a != null || !n.d ? null : (rel ? rel + "/" + n.n : n.n);
+    drawTile(n, r.x + 2, r.y + 2, r.w - 4, r.h - 4, level, n.f || flag, childRel, node.s);
+  }
+}
+
+function drawTile(n, x, y, w, h, level, flag, rel, parentSize) {
+  if (w < 3 || h < 3) return;
+  const pal = palette(n, flag);
+  const div = el("div", "tile");
+  Object.assign(div.style, {
+    left: x + "px", top: y + "px", width: w + "px", height: h + "px",
+    borderColor: `var(--${pal}-bd)`, color: `var(--${pal}-ink)`,
+  });
+  if (flag) div.classList.add("hatch-" + flag);
+  if (n.free) div.classList.add("free", "file");
+  else if (n.a != null) div.classList.add("agg");
+  else if (!n.d) div.classList.add("file");
+  div.dataset.i = state.tiles.length;
+  state.tiles.push({ n, rel, flag, parentSize });
+  $("map").append(div);
+
+  const name = n.a != null ? `${n.a.toLocaleString()} smaller item${n.a === 1 ? "" : "s"}` : n.n + (n.x ? " (no access)" : "");
+  const kids = n.k || [];
+  const onlyAgg = kids.length === 1 && kids[0].a != null;
+  const big = level === 1 ? (w >= 110 && h >= 70) : (w >= 150 && h >= 110);
+  if (kids.length && !onlyAgg && big) {
+    div.classList.add("group");
+    div.style.backgroundColor = `var(--${pal}-bg2)`;
+    const head = el("div", "head");
+    head.append(el("span", "name", name), el("span", "gsz", fmt(n.s)));
+    div.append(head);
+    layout(n, x + 4, y + 26, w - 8, h - 30, level + 1, flag, rel);
+    return;
+  }
+  div.style.backgroundColor = `var(--${pal}-bg)`;
+  if (w >= 36 && h >= 20) div.append(el("div", "lbl", name));
+  if (w >= 56 && h >= 44 && n.a == null) {
+    const s = el("div", "sz", fmt(n.s));
+    s.style.fontSize = Math.max(13, Math.min(28, Math.sqrt(w * h) / 9)) + "px";
+    div.append(s);
+  }
+}
+
+/* tooltip + clicks via delegation */
+function tileFromEvent(e) {
+  const t = e.target.closest(".tile");
+  return t ? state.tiles[+t.dataset.i] : null;
+}
+$("map").addEventListener("mousemove", (e) => {
+  const info = tileFromEvent(e), tip = $("tip");
+  if (!info) { tip.hidden = true; return; }
+  const n = info.n;
+  tip.textContent = "";
+  const title = n.a != null ? `${n.a.toLocaleString()} smaller items` : n.n;
+  tip.append(el("b", "", title));
+  const pct = state.viewTotal ? ((n.s / state.viewTotal) * 100).toFixed(1) : 0;
+  tip.append(el("div", "", `${fmt(n.s)} · ${pct}% of this view`));
+  if (n.free) {
+    const disk = state.status.summary.disk;
+    tip.append(el("div", "m", `Unused space on this disk (${fmt(disk.total)} total)`));
+  } else tip.append(el("div", "m", CATS[n.c] || CATS.other));
+  if (info.flag) tip.append(el("div", "m", SAFETY[info.flag]));
+  if (n.x) tip.append(el("div", "m", "Permission denied"));
+  if (info.rel != null) tip.append(el("div", "m", "Click to open"));
+  tip.hidden = false;
+  const tx = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8);
+  const ty = e.clientY + 18 + tip.offsetHeight > innerHeight ? e.clientY - tip.offsetHeight - 10 : e.clientY + 18;
+  tip.style.left = tx + "px"; tip.style.top = ty + "px";
+});
+$("map").addEventListener("mouseleave", () => ($("tip").hidden = true));
+$("map").addEventListener("click", (e) => {
+  const info = tileFromEvent(e);
+  if (info && info.rel != null) { $("tip").hidden = true; navigate(info.rel).catch((err) => toast(err.message)); }
+});
+
+/* ---------- wiring ---------- */
+$("mode").addEventListener("click", (e) => {
+  const m = e.target.dataset.mode; if (!m) return;
+  state.mode = m; save("diskmap.mode", m); renderLegend(); renderMap();
+});
+$("show-free").checked = state.showFree;
+$("show-free").addEventListener("change", (e) => {
+  state.showFree = e.target.checked; save("diskmap.free", state.showFree ? "1" : "0");
+  if (state.showFree && state.path) toast("Free space shows at the top level");
+  renderLegend(); renderCrumbs(); renderMap();
+});
+$("rescan").onclick =async () => { await api("/api/scan", { method: "POST" }); poll(); };
+$("select-safe").onclick = () => { state.selected = new Set(state.recs.filter((r) => r.safety === "safe").map((r) => r.id)); renderRecs(); };
+$("select-none").onclick = () => { state.selected.clear(); renderRecs(); };
+$("copy-script").onclick = copyScript;
+$("dlg-close").onclick = () => $("dlg").close();
+$("dlg-copy").onclick = async () => toast((await copyText($("dlg-script").textContent)) ? "Copied" : "Clipboard unavailable");
+$("dlg-download").onclick = () => {
+  const a = el("a"); a.download = isWindows() ? "diskmap-cleanup.ps1" : "diskmap-cleanup.sh";
+  a.href = URL.createObjectURL(new Blob([$("dlg-script").textContent], { type: "text/plain" }));
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+document.addEventListener("keydown", (e) => {
+  if ($("dlg").open || e.target.matches("input, textarea")) return;
+  if (e.key === "Backspace" || e.key === "Escape") { e.preventDefault(); goUp(); }
+});
+let raf = 0;
+new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderMap); }).observe($("map"));
+
+renderLegend();
+renderCrumbs();
+poll();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "diskmap",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "diskmap", "--no-browser", "--port", "8765"],
+      "port": 8765
+    }
+  ]
+}
