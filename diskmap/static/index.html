@@ -372,7 +372,8 @@ async function poll() {
 
 function renderScanInfo() {
   const s = state.status, info = $("scaninfo");
-  $("explorer-sub").textContent = (s.is_home ? "Your home folder" : s.root_label) + ", sized by space used. Click a tile to open it.";
+  const what = s.is_home ? "Your home folder" : s.is_disk ? `All of ${s.root_label}` : s.root_label;
+  $("explorer-sub").textContent = what + ", sized by space used. Click a tile to open it.";
   if (s.state === "scanning") { info.textContent = `Scanning ${s.root_label}…`; return; }
   const sum = s.summary;
   if (!sum) { info.textContent = ""; return; }
@@ -488,7 +489,7 @@ function renderCards() {
   setValue("c-free", sum.disk.free + sel, sel ? "+" + fmt(sel) : "", "up");
   setValue("c-safe", dedupedTotal(itemsOf(safe)), `${safe.length} item${safe.length === 1 ? "" : "s"}`);
   setValue("c-review", dedupedTotal(itemsOf(review)), `${review.length} item${review.length === 1 ? "" : "s"}`);
-  setValue("c-other", Math.max(0, sum.disk.used - sum.scanned), state.status.is_home ? "system & apps" : "outside this folder");
+  setValue("c-other", Math.max(0, sum.disk.used - sum.scanned), state.status.is_home ? "system & apps" : state.status.is_disk ? "unreadable folders" : "outside this folder");
   const selCount = state.selected.size;
   $("sel-info").innerHTML = "";
   $("sel-info").append(el("b", "", fmt(sel)), ` selected · ${selCount} item${selCount === 1 ? "" : "s"}`);

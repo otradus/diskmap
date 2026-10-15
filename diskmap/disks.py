@@ -1,4 +1,4 @@
-"""Lists the disks (mounted volumes) DiskMap can scan besides your home folder."""
+"""Lists the disks (mounted volumes) DiskMap can scan."""
 from __future__ import annotations
 
 import os
@@ -47,34 +47,37 @@ def _linux_mounts() -> list:
 
 def _linux(home: str) -> list:
     mounts = _linux_mounts()
-    # The device holding home: the mount with the longest matching prefix.
-    home_dev = None
-    best = -1
-    for device, mount in mounts:
-        if (home == mount or home.startswith(mount.rstrip("/") + "/")) and len(mount) > best:
-            home_dev, best = device, len(mount)
-    seen = {home_dev}
+    # The disk holding home: the mount with the longest matching prefix. It goes first.
+    home_mount = max((m for m in mounts if home == m[1] or home.startswith(m[1].rstrip("/") + "/")),
+                     key=lambda m: len(m[1]), default=None)
+    ordered = ([home_mount] if home_mount else []) + sorted(mounts, key=lambda m: m[1])
+    seen = set()
     roots = []
-    for device, mount in sorted(mounts, key=lambda m: m[1]):
+    for device, mount in ordered:
         if device in seen:  # same partition mounted twice, or a btrfs subvolume of it
             continue
         seen.add(device)
         label = "System disk (/)" if mount == "/" else os.path.basename(mount) or mount
-        roots.append((mount, label))
+        roots.append((mount, label, None))
     return roots
 
 
 def _mac(home: str) -> list:
-    roots = []
     try:
         names = sorted(os.listdir("/Volumes"))
     except OSError:
-        return roots
+        names = []
+    # The startup disk shows up in /Volumes as a link to / named after it ("Macintosh HD").
+    startup = next((n for n in names if os.path.islink(os.path.join("/Volumes", n))
+                    and os.path.realpath(os.path.join("/Volumes", n)) == "/"), "Macintosh HD")
+    # Since Catalina, your files live on a separate Data volume that macOS joins to /
+    # (/Users, /Applications…). Scan both, but not the Data volume again under its own path.
+    data = "/System/Volumes/Data"
+    roots = [("/", startup, data if os.path.isdir(data) else None)]
     for name in names:
         path = os.path.join("/Volumes", name)
-        if os.path.islink(path):  # "Macintosh HD" -> /, the disk home lives on
-            continue
-        roots.append((path, name))
+        if not os.path.islink(path):
+            roots.append((path, name, None))
     return roots
 
 
@@ -82,18 +85,24 @@ def _windows(home: str) -> list:
     import ctypes
 
     get_type = ctypes.windll.kernel32.GetDriveTypeW
+    home_drive = os.path.splitdrive(home)[0].upper()
     roots = []
     for letter in string.ascii_uppercase:
         path = f"{letter}:\\"
         # 2 = removable, 3 = fixed. Skips network shares, CD/DVD and RAM disks.
         if get_type(path) not in (2, 3) or not os.path.isdir(path):
             continue
-        roots.append((path, f"{letter}:"))
+        roots.append((path, f"{letter}:", None))
+    # The drive holding home (usually C:) first.
+    roots.sort(key=lambda r: r[1] != home_drive)
     return roots
 
 
-def other_disks(home: str) -> list:
-    """Disks other than the one holding `home`, as dicts with root, label, total and free."""
+def list_disks(home: str) -> list:
+    """Mounted disks, the one holding `home` first, as dicts with root, label, total and free.
+
+    "merge" (macOS startup disk only) names a second volume that belongs to the same disk.
+    """
     try:
         if sys.platform == "win32":
             found = _windows(home)
@@ -103,18 +112,17 @@ def other_disks(home: str) -> list:
             found = _linux(home)
     except Exception:  # never let disk discovery break the app
         return []
-    home_dev = _dev(home)
     out = []
-    seen = {home_dev}
-    for root, label in found:
+    seen = set()
+    for root, label, merge in found:
         dev = _dev(root)
         if dev is None or dev in seen:
             continue
         seen.add(dev)
         try:
-            usage = shutil.disk_usage(root)
+            usage = shutil.disk_usage(merge or root)
         except OSError:
             continue
-        out.append({"root": os.path.realpath(root), "label": label,
+        out.append({"root": os.path.realpath(root), "label": label, "merge": merge,
                     "total": usage.total, "free": usage.free})
     return out

@@ -4,8 +4,9 @@ See what's using your disk, and build a cleanup script for the safe stuff.
 
 - **Explorer**: a treemap of your home folder. Color by *Category* (code projects,
   SDKs, AI models, package caches, documents & media) or by *Cleanup* (safe / needs review).
-  Click a tile to drill in; Backspace or Esc goes up. If you have more than one disk,
-  pick it from the menu at the top. Hover "N folders unreadable" to see which ones.
+  Click a tile to drill in; Backspace or Esc goes up. To scan a whole disk (`C:`, `Macintosh HD`,
+  `/`) or another drive, pick it from the menu at the top. On the system disk, cleanup
+  suggestions stay inside your home folder. Hover "N folders unreadable" to see which ones.
   The theme follows your system, or pick Light or Dark in the top bar.
 - **Recommendations**: caches, build output and other regenerable data it found
   (npm/yarn/pnpm, `.next`/`.turbo`, Gradle, Xcode DerivedData, uv/pip, Android SDK,

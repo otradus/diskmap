@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
-from .disks import other_disks
+from .disks import list_disks
 from .scanner import ScanResult, Scanner, tilde
 
 STATIC = Path(__file__).parent / "static"
@@ -35,24 +35,29 @@ class App:
         self.bye_at = 0.0  # when a browser-mode tab last said it was closing
 
     def choices(self) -> list:
-        """What the page may ask to scan: the starting folder, home, and other disks."""
+        """What the page may ask to scan: the starting folder, home, then each disk."""
         out = []
         for root in dict.fromkeys((self.start_root, self.home)):
             out.append({"root": root, "label": self.label_for(root)})
-        out += [d for d in self.disks if d["root"] not in (self.start_root, self.home)]
+        out += [{k: d[k] for k in ("root", "label", "total", "free")}
+                for d in self.disks if d["root"] not in (self.start_root, self.home)]
         return out
+
+    def disk_for(self, root: str) -> Optional[dict]:
+        return next((d for d in self.disks if d["root"] == root), None)
 
     def start_scan(self, root: Optional[str] = None) -> bool:
         with self.lock:
             if self.scanner and self.scanner.running:
                 return False
-            self.disks = other_disks(self.home)
+            self.disks = list_disks(self.home)
             if root is not None:
                 if root not in {c["root"] for c in self.choices()}:
                     return False
                 self.root = root
             self.error = None
-            self.scanner = Scanner(self.root, self.home)
+            disk = self.disk_for(self.root)
+            self.scanner = Scanner(self.root, self.home, disk and disk["merge"])
             scanner = self.scanner
         threading.Thread(target=self._run, args=(scanner,), daemon=True).start()
         return True
@@ -70,11 +75,9 @@ class App:
 
     def label_for(self, root: str) -> str:
         if root == self.home:
-            return "~ Home"
-        for d in self.disks:
-            if d["root"] == root:
-                return d["label"]
-        return tilde(root, self.home)
+            return "Home folder"
+        disk = self.disk_for(root)
+        return disk["label"] if disk else tilde(root, self.home)
 
     def root_label(self) -> str:
         return self.label_for(self.root)
@@ -94,6 +97,7 @@ class App:
             "root": self.root,
             "root_label": self.root_label(),
             "is_home": self.root == self.home,
+            "is_disk": self.disk_for(self.root) is not None,
             "platform": PLATFORM,
             "browser_mode": self.browser_mode,
             "scan_id": self.scan_id,

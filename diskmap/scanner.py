@@ -55,6 +55,11 @@ class Found:
         self.rule, self.path, self.node, self.project = rule, path, node, project
 
 
+def _inside(path: str, root: str) -> bool:
+    path, root = os.path.normcase(path), os.path.normcase(root)
+    return path == root or path.startswith(root.rstrip("\\/") + os.sep)
+
+
 def _disk_bytes(st: os.stat_result) -> int:
     # Allocated blocks, not apparent size: sparse files and cloud placeholders count as what they use.
     blocks = getattr(st, "st_blocks", None)
@@ -66,7 +71,8 @@ def _disk_bytes(st: os.stat_result) -> int:
 
 
 class Scanner:
-    def __init__(self, root: str, home: Optional[str] = None):
+    def __init__(self, root: str, home: Optional[str] = None, merge: Optional[str] = None):
+        """`merge` is a second volume that belongs to this disk (macOS's Data volume)."""
         self.root = os.path.realpath(os.path.expanduser(root))
         self.home = os.path.realpath(home or os.path.expanduser("~"))
         if self.root == self.home:
@@ -75,6 +81,13 @@ class Scanner:
             self.root_rel = os.path.relpath(self.root, self.home).replace(os.sep, "/")
         else:
             self.root_rel = None  # outside home: path-based rules don't apply
+        # A whole-disk scan that includes home: rules apply inside home, never to system files.
+        self.contains_home = self.root_rel is None and _inside(self.home, self.root)
+        self.usage_root = merge or self.root
+        # Windows doesn't report hard links while listing a folder; under C:\Windows (where
+        # WinSxS hard-links most of the system) ask for each file so they're counted once.
+        windir = os.environ.get("SystemRoot") if IS_WINDOWS and self.contains_home else None
+        self._windir = os.path.realpath(windir) if windir else None
         self.files = self.dirs = self.bytes = self.errors = 0
         self.current = self.root
         self.started: Optional[float] = None
@@ -84,7 +97,11 @@ class Scanner:
         self._lock = threading.Lock()
         self._inodes: set = set()
         self._opening: dict = {}  # thread id -> (path, since); spots listings stuck on a macOS privacy prompt
-        self._dev = os.stat(self.root).st_dev
+        self._devs = {os.stat(self.root).st_dev}
+        self._skip: set = set()
+        if merge:
+            self._devs.add(os.stat(merge).st_dev)
+            self._skip.add(merge)  # already reached through / (firmlinks), don't count it twice
         self._outer = self._inner = None
 
     @property
@@ -137,6 +154,7 @@ class Scanner:
         if own is None and depth > 0 and not names.isdisjoint(rules.PROJECT_MARKERS):
             own = "code"
 
+        windir = self._windir is not None and _inside(path, self._windir)
         cat_sizes: dict = defaultdict(int)
         kids = []
         subdirs = []
@@ -154,12 +172,17 @@ class Scanner:
                     # reached through junctions / mount points, so skip those instead.
                     if getattr(st, "st_reparse_tag", 0) in _SKIP_REPARSE_TAGS:
                         continue
-                elif st.st_dev != self._dev:  # don't wander onto other volumes
+                elif st.st_dev not in self._devs or e.path in self._skip:  # stay on this disk
                     continue
                 subdirs.append(e)
                 continue
             if not stat.S_ISREG(mode):
                 continue
+            if windir:
+                try:
+                    st = os.stat(e.path, follow_symlinks=False)
+                except OSError:
+                    continue
             if st.st_nlink > 1:  # count hard-linked files once (pnpm, Time Machine…)
                 key = (st.st_dev, st.st_ino)
                 with self._lock:
@@ -184,8 +207,16 @@ class Scanner:
 
         jobs = []
         for e in subdirs:
-            child_rel = None if rel is None else (f"{rel}/{e.name}" if rel else e.name)
-            rule = None if in_found else rules.match_dir(e.name, child_rel, name, names, e.path)
+            if rel is not None:
+                child_rel = f"{rel}/{e.name}" if rel else e.name
+            elif self.contains_home and os.path.normcase(e.path) == os.path.normcase(self.home):
+                child_rel = ""  # reached home inside a whole-disk scan
+            else:
+                child_rel = None
+            if in_found or (child_rel is None and self.contains_home):
+                rule = None  # system disk outside home: never suggest deleting system files
+            else:
+                rule = rules.match_dir(e.name, child_rel, name, names, e.path)
             jobs.append((e, child_rel, rule))
 
         def scan_child(job):
@@ -244,7 +275,7 @@ class ScanResult:
         self.denied = sorted(scanner.denied)
         self.duration = (scanner.finished or time.time()) - (scanner.started or time.time())
         self.finished_at = scanner.finished
-        usage = shutil.disk_usage(scanner.root)
+        usage = shutil.disk_usage(scanner.usage_root)
         self.disk = {"total": usage.total, "used": usage.used, "free": usage.free}
         self.recs = self._recommendations(scanner)
         self.flags = {i["path"]: r["safety"] for r in self.recs for i in r["items"]}
